@@ -1,6 +1,7 @@
 import math
 import pandas as pd
 import numpy as np
+import re
 from pathlib import Path
 
 
@@ -105,3 +106,29 @@ def calc_recommendation(df_expl, df_pop):
     df_out.rename(columns={'impressions': 'item_recommendations'}, inplace=True)
 
     return df_out
+
+
+def regextostr(textin):
+    strlist = re.findall(r'[^\|]+',textin)
+
+    return strlist
+
+
+def getlist(listin):
+    for i,textin in enumerate(listin): listin[i] = regextostr(textin)
+
+    return listin
+
+
+def onehotencode(df):
+    list = df.values.tolist()
+    list = getlist(list)
+    df_onehot = pd.get_dummies(pd.Series(list).apply(pd.Series).stack()).sum(level=0)
+
+    return df_onehot
+
+
+def flatten(dfin,col1,col2):
+    df = pd.DataFrame({col1:np.repeat(dfin[col1].values,dfin[col2].str.len()),'reference':sum(dfin[col2],[])})
+
+    return df
