@@ -4,6 +4,8 @@ import pandas as pd
 from . import functions as f
 from pathlib import Path
 import click
+from sklearn.utils import resample
+from sklearn.model_selection import train_test_split
 
 current_directory = Path(__file__).absolute().parent
 default_data_directory = current_directory.joinpath('..', '..', 'data')
@@ -11,7 +13,6 @@ default_data_directory = current_directory.joinpath('..', '..', 'data')
 @click.option('--data-path', default='./data/', help='Directory for the CSV files')
 
 def main(data_path):
-    print('start simple fm')
     # calculate path to files
     data_directory = Path(data_path) if data_path else default_data_directory
     train_csv = data_directory.joinpath('train.csv')
@@ -19,14 +20,18 @@ def main(data_path):
     meta_csv = data_directory.joinpath('item_metadata.csv')
     subm_csv = data_directory.joinpath('submission_popular.csv')
 
-    print(f"Reading {train_csv} ...")
-    df_train = pd.read_csv(train_csv,nrows=10000)
-    print(f"Reading {test_csv} ...")
-    df_test = pd.read_csv(test_csv,nrows=10000)
-    print(f"Reading {meta_csv} ...")
-    df_meta = pd.read_csv(meta_csv,nrows=100000)
-    print("Reading finished")
+    meta_encoded_csv = data_directory.joinpath('item_metadata_encoded.csv')
+    training_ffm = data_directory.joinpath('training_ffm.txt')
+    test_ffm = data_directory.joinpath('test_ffm.txt')
+    model_ffm = data_directory.joinpath('model.out')
+    output_ffm = data_directory.joinpath('output.txt')
 
+    print(f"Reading {train_csv} ...")
+    df_train = pd.read_csv(train_csv,nrows=100000)
+    print(f"Reading {test_csv} ...")
+    df_test = pd.read_csv(test_csv,nrows=100000)
+
+    print("Preprocessing sessions ...")
     mask = df_train['action_type'] == 'clickout item'
     df_clicks = df_train[mask]
 
@@ -42,87 +47,61 @@ def main(data_path):
     df_clicks['impressions'] = df_clicks['impressions'].apply(lambda x: sum(x,[]))
     df_clicks['impressions'] = df_clicks.apply(lambda x: list(set(x['impressions'])-set(x['reference'])), axis=1)
     df_unclicked = f.flatten(df_clicks,'session_id','impressions')
+    df_unclicked = df_unclicked.astype({'reference':int})
     df_clicks = f.flatten(df_clicks,'session_id','reference')
+    df_clicks = resample(df_clicks,replace=True,n_samples=df_unclicked.shape[0])
     df_clicks['label'] = 1
     df_unclicked['label'] = 0
 
-    df_metaonehot = f.onehotencode(df_meta['properties'])
-    df_meta = df_meta['item_id'].to_frame().join(df_metaonehot)
-    df_meta = df_meta.rename(columns={'item_id':'reference'})
+    try:
+        meta_encoded_csv.resolve(strict=True)
+    except FileNotFoundError:
+        print(f"Reading {meta_csv} ...")
+        df_meta = pd.read_csv(meta_csv)
+        print("Preprocessing metadata ...")
+        df_metaonehot = f.onehotencode(df_meta['properties'])
+        df_meta = df_meta['item_id'].to_frame().join(df_metaonehot)
+        df_meta = df_meta.rename(columns={'item_id':'reference'})
+        df_meta.to_csv(meta_encoded_csv,index=None,header=True)
+    else:
+        print("Encoded metadata file found")
+        print(f"Reading {meta_encoded_csv} ...")
+        df_meta = pd.read_csv(meta_encoded_csv)
 
+    print("Merging dataframes ...")
     df_merged = pd.concat([df_clicks,df_unclicked])
-    df_merged = pd.merge(df_merged, df_meta, on='reference')
+    df_merged = df_merged.sort_values(by=['reference'])
+    df_merged = df_merged.merge(df_meta,how='left',on='reference')
+    df_merged = df_merged.drop('reference',1)
+    df_merged = df_merged.dropna()
 
     print(df_merged)
 
-    # next step: transform city to int by counting # of cities without duplication
-    # add metadata of references
-    # put it into ffm
+    x_train, x_test = train_test_split(df_merged,test_size = 0.3)
 
-    # df_impprice = df_train[['impressions','prices']]
-    # df_impprice = df_impprice.dropna()
-    # print(df_impprice.head())
-    # #
-    # pricelist = df_impprice['prices'].values.tolist()
-    # for i,textin in enumerate(pricelist): pricelist[i] = f.regextostr(textin)
-    # pricelist = sum(pricelist,[])
-    # pricelist = np.asarray(pricelist,dtype=np.int32)
-    # print(pricelist)
-    # print(r'Maximum price is : %d' % pricelist.max())
-    #
-    # n, bins, patches = plt.hist(pricelist,100)
-    # plt.xlabel('price')
-    # plt.ylabel('number')
-    # plt.title('prices')
-    # plt.grid(True)
-    # plt.draw()
-    # plt.savefig('./prices.png', dpi=300, bbox_inches='tight')
+    print("Writing FFM input ...")
+    features = df_merged.columns.tolist()
+    features.remove('session_id')
+    features.remove('label')
+    f.writeffm(x_train,features,training_ffm.as_posix())
+    f.writeffm(x_test,features,test_ffm.as_posix())
 
-    # print(pricelist)
+    import xlearn as xl
 
-    # df_train = df_train.drop('timestamp',1)
+    print("Training FFM ...")
+    ffm_model = xl.create_ffm()
+    ffm_model.setTrain(training_ffm.as_posix())
+    param = {'task':'binary','lr':0.2,'lambda':0.001,'metric':'acc','opt':'adagrad','k':2,'epoch':100}
 
-    # data = Counter(df_train.index).most_common(10000)
-    # keys = dict(data).keys()
-    # df_train = df_train[df_train.index.isin(keys)]
-    #
-    # # print(df_train.head())
-    #
-    # df_train['_session_id'] = df_train.index
-    #
-    # tf_train = pd.get_dummies(df_train)
-    #
-    # # print("transform finished")
-    # # print(tf_train.head())
-    #
-    # filtered_train = tf_train.filter(regex="impressions.*|")
-    #
-    # accumulated = filtered_train.groupby(filtered_train.index).sum()
-    # accumulated = filtered_train.rename(columns=lambda column_name: 'accumulated_impression' +  column_name)
-    #
-    # merged = pd.merge(tf_train,accumulated,left_index=True,right_index=True)
+    ffm_model.fit(param,model_ffm.as_posix())
+    ffm_model.cv(param)
 
+    ffm_model.setTest(test_ffm.as_posix())
 
+    ffm_model.setSigmoid()
+    ffm_model.predict(model_ffm.as_posix(),output_ffm.as_posix())
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    print('simple fm finished')
+    print('Finished')
 
 if __name__ == '__main__':
     main()
