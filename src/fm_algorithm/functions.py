@@ -120,27 +120,38 @@ def getlist(listin):
     return listin
 
 
-def onehotencode(df):
+def onehotprop(df):
     list = df.values.tolist()
     list = getlist(list)
 
     keys = ['1 Star', '2 Star', '3 Star', '4 Star', '5 Star', 'Accessible Hotel', 'Accessible Parking', 'Adults Only', 'Air Conditioning', 'Airport Hotel', 'Airport Shuttle', 'All Inclusive (Upon Inquiry)', 'Balcony', 'Bathtub', 'Beach', 'Beach Bar', 'Beauty Salon', 'Bed & Breakfast', 'Bike Rental', 'Boat Rental', 'Body Treatments', 'Boutique Hotel', 'Bowling', 'Bungalows', 'Business Centre', 'Business Hotel', 'Cable TV', 'Camping Site', 'Car Park', 'Casa Rural (ES)', 'Casino (Hotel)', 'Central Heating', 'Childcare', 'Club Hotel', 'Computer with Internet', 'Concierge', 'Conference Rooms', 'Convenience Store', 'Convention Hotel', 'Cosmetic Mirror', 'Cot', 'Country Hotel', 'Deck Chairs', 'Design Hotel', 'Desk', 'Direct beach access', 'Diving', 'Doctor On-Site', 'Eco-Friendly hotel', 'Electric Kettle', 'Excellent Rating', 'Express Check-In / Check-Out', 'Family Friendly', 'Fan', 'Farmstay', 'Fitness', 'Flatscreen TV', 'Free WiFi (Combined)', 'Free WiFi (Public Areas)', 'Free WiFi (Rooms)', 'Fridge', 'From 2 Stars', 'From 3 Stars', 'From 4 Stars', 'Gay-friendly', 'Golf Course', 'Good Rating', 'Guest House', 'Gym', 'Hairdresser', 'Hairdryer', 'Halal Food', 'Hammam', 'Health Retreat', 'Hiking Trail', 'Honeymoon', 'Horse Riding', 'Hostal (ES)', 'Hostel', 'Hot Stone Massage', 'Hotel', 'Hotel Bar', 'House / Apartment', 'Hydrotherapy', 'Hypoallergenic Bedding', 'Hypoallergenic Rooms', 'Ironing Board', 'Jacuzzi (Hotel)', "Kids' Club", 'Kosher Food', 'Large Groups', 'Laundry Service', 'Lift', 'Luxury Hotel', 'Massage', 'Microwave', 'Minigolf', 'Motel', 'Nightclub', 'Non-Smoking Rooms', 'On-Site Boutique Shopping', 'Openable Windows', 'Organised Activities', 'Pet Friendly', 'Playground', 'Pool Table', 'Porter', 'Pousada (BR)', 'Radio', 'Reception (24/7)', 'Resort', 'Restaurant', 'Romantic', 'Room Service', 'Room Service (24/7)', 'Safe (Hotel)', 'Safe (Rooms)', 'Sailing', 'Satellite TV', 'Satisfactory Rating', 'Sauna', 'Self Catering', 'Senior Travellers', 'Serviced Apartment', 'Shooting Sports', 'Shower', 'Singles', 'Sitting Area (Rooms)', 'Ski Resort', 'Skiing', 'Solarium', 'Spa (Wellness Facility)', 'Spa Hotel', 'Steam Room', 'Sun Umbrellas', 'Surfing', 'Swimming Pool (Bar)', 'Swimming Pool (Combined Filter)', 'Swimming Pool (Indoor)', 'Swimming Pool (Outdoor)', 'Szep Kartya', 'Table Tennis', 'Telephone', 'Teleprinter', 'Television', 'Tennis Court', 'Tennis Court (Indoor)', 'Terrace (Hotel)', 'Theme Hotel', 'Towels', 'Very Good Rating', 'Volleyball', 'Washing Machine', 'Water Slide', 'Wheelchair Accessible', 'WiFi (Public Areas)', 'WiFi (Rooms)']
 
-    keys = dict(zip(keys,range(len(keys))))
+    keys = dict(zip(keys,range(ncols)))
 
     # df_onehot = pd.get_dummies(pd.Series(list).apply(pd.Series).stack()).sum(level=0) # super-slow
-    df_onehot = np.zeros((len(list),len(keys)),dtype=np.uint8)
+    df_onehot = np.zeros((len(list),ncols),dtype=np.uint8)
     for i, props in enumerate(list):
         for prop in props:
             df_onehot[i,keys[prop]] = 1
 
     df_onehot = pd.DataFrame(df_onehot,columns=keys)
 
-    return df_onehot
+    return df_onehot, keys
 
 
-def flatten(dfin,col1,col2):
-    df = pd.DataFrame({col1:np.repeat(dfin[col1].values,dfin[col2].str.len()),'reference':sum(dfin[col2],[])})
+def flatten(dfin,cols,col2):
+    df1 = np.asarray(dfin[cols].values,dtype='U')
+    df2 = dfin[col2].values
+    df = np.zeros((0,len(cols)+1),dtype='U')
+    for i in range(df1.shape[0]):
+        n = len(df2[i])
+        dfblock = np.tile(df1[i],(n,1))
+        dfblock = np.hstack((dfblock,np.asarray(df2[i]).reshape(n,1)))
+        df = np.vstack((df,dfblock))
+    # df = pd.DataFrame({col1:np.repeat(dfin[col1].values,dfin[col2].str.len()),'reference':sum(dfin[col2],[])})
+    cols.append('reference')
+    cols = dict(zip(cols,range(len(cols))))
+    df = pd.DataFrame(df,columns=cols)
 
     return df
 
@@ -153,23 +164,50 @@ def findorincrement(dict,key):
         return dict.get(key)
 
 
-def writeffm(df,features,filename):
+def onehotid(df):
+    df = df.values.tolist()
+    names = list(dict.fromkeys(df))
+    ncols = len(names)
+    names = dict(zip(names,range(ncols)))
+
+    df_onehot = np.zeros((len(df),ncols),dtype=np.uint8)
+    for i, ids in enumerate(df):
+        df_onehot[i,names[ids]] = 1
+
+    df_onehot = pd.DataFrame(df_onehot,columns=names)
+
+    return df_onehot, names
+
+
+def onehotsession(dfin,cols):
+    listkeys = []
+    for col in cols:
+        print(f"Encoding {col} ...")
+        df, keys = onehotid(dfin[col])
+        dfin = dfin.drop(col,1)
+        dfin = pd.concat([dfin.reset_index(drop=True),df.reset_index(drop=True)],axis=1)
+        listkeys.append(keys)
+
+    return dfin, listkeys
+
+
+def writeffm(df,listkeys,filename):
     nrows = df.shape[0]
-    ncols = len(features)
     sessions = {}
-    with open(filename,'w') as file:
+    with open(filename,'w+') as file:
         for r in range(nrows):
             data = ''
             row = df.iloc[r].to_dict()
-            data += str(row['label'])
+            data += str(int(row['label']))
 
             isession = findorincrement(sessions,row['session_id'])
             sessionstr = ' '+'0:0:'+str(isession)
             data += sessionstr
 
-            for feature in features:
-                featurestr = ' '+'1:'+str(df.columns.get_loc(feature))+':'+str(row[feature])
-                data += featurestr
+            for f,fieldkeys in enumerate(listkeys):
+                for colname,idx in fieldkeys.items():
+                    featurestr = ' '+str(f+1)+':'+str(idx)+':'+str(int(row[colname]))
+                    data += featurestr
 
             data += '\n'
             file.write(data)
