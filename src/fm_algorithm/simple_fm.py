@@ -81,32 +81,41 @@ def main(data_path):
     df_merged = df_merged.sort_values(by=['reference'])
     df_merged = df_merged.merge(df_meta,how='left',on='reference')
     df_merged = df_merged.dropna()
-    df_merged, listkeys = f.onehotsession(df_merged,['platform','city'])
+    df_merged, listkeys = f.onehotsession(df_merged,['platform','city','session_id'])
     listkeys.insert(0,propkeys)
     df_merged = df_merged.drop('reference',1)
-
     print(df_merged)
 
-    x_train, x_test = train_test_split(df_merged,test_size = 0.3)
+    y = df_merged['label']
+    df_merged = df_merged.drop('label',1)
+    fieldmap = f.getfieldmap(listkeys)
+    fieldmap = pd.DataFrame(fieldmap, index=[0])
 
-    print("Writing FFM input ...")
+    x_train, x_test, y_train, y_test = train_test_split(df_merged,y,test_size = 0.3)
+
+    # print("Writing FFM input ...")
     # features.remove('session_id')
-    f.writeffm(x_train,listkeys,training_ffm.as_posix())
-    f.writeffm(x_test,listkeys,test_ffm.as_posix())
+    # f.writeffm(x_train,listkeys,training_ffm.as_posix())
+    # f.writeffm(x_test,listkeys,test_ffm.as_posix())
 
     import xlearn as xl
 
+    x_train = xl.DMatrix(x_train,y_train,fieldmap)
+    x_test = xl.DMatrix(x_test,y_test,fieldmap)
+
     print("Training FFM ...")
     ffm_model = xl.create_ffm()
-    ffm_model.setTrain(training_ffm.as_posix())
-    param = {'task':'binary','lr':0.2,'lambda':0.001,'metric':'acc','opt':'adagrad','k':5,'epoch':20}
+    # ffm_model.setTrain(training_ffm.as_posix())
+    ffm_model.setTrain(x_train)
+    param = {'task':'binary','lr':0.2,'lambda':0.001,'metric':'acc','opt':'adagrad','k':4,'epoch':10}
 
     ffm_model.fit(param,model_ffm.as_posix())
     ffm_model.cv(param)
 
-    ffm_model.setTest(test_ffm.as_posix())
-
+    # ffm_model.setTest(test_ffm.as_posix())
     ffm_model.setSigmoid()
+    ffm_model.setTest(x_test)
+
     ffm_model.predict(model_ffm.as_posix(),output_ffm.as_posix())
 
     print('Finished')
