@@ -5,6 +5,8 @@ from pathlib import Path
 import click
 from sklearn.utils import resample
 from sklearn.model_selection import train_test_split
+from . import dimensionality_reduction as dimred
+
 
 current_directory = Path(__file__).absolute().parent
 default_data_directory = current_directory.joinpath('..', '..', 'data')
@@ -25,32 +27,79 @@ def main(data_path):
     model_ffm = data_directory.joinpath('model.out')
     output_ffm = data_directory.joinpath('output.txt')
 
-    print(f"Reading {train_csv} ...")
-    df_train = pd.read_csv(train_csv)
 
-    print(f"Analyzing users ...")
-    users = df_train[['user_id']].copy()
-    users = users.loc[users['user_id'].shift() != users['user_id']]
-    users = users['user_id'].value_counts()
-    print(users[1:10])
+    print(f"Reading {meta_encoded_csv} ...")
+    df_items = pd.read_csv(meta_encoded_csv)
 
-    print(f"Analyzing platforms ...")
-    platform = df_train[['platform']].copy()
-    platform = platform.loc[platform['platform'].shift() != platform['platform']]
-    platform = platform['platform'].value_counts()
-    print(platform)
+    all_keys = ['1 Star', '2 Star', '3 Star', '4 Star', '5 Star', 
+                'Accessible Hotel', 'Accessible Parking', 'Adults Only', 'Air Conditioning', 'Airport Hotel', 
+                'Airport Shuttle', 'All Inclusive (Upon Inquiry)', 'Balcony', 'Bathtub', 'Beach', 'Beach Bar', 
+                'Beauty Salon', 'Bed & Breakfast', 'Bike Rental', 'Boat Rental', 'Body Treatments', 
+                'Boutique Hotel', 'Bowling', 'Bungalows', 'Business Centre', 'Business Hotel', 'Cable TV', 
+                'Camping Site', 'Car Park', 'Casa Rural (ES)', 'Casino (Hotel)', 'Central Heating', 'Childcare', 
+                'Club Hotel', 'Computer with Internet', 'Concierge', 'Conference Rooms', 'Convenience Store', 
+                'Convention Hotel', 'Cosmetic Mirror', 'Cot', 'Country Hotel', 'Deck Chairs', 'Design Hotel', 
+                'Desk', 'Direct beach access', 'Diving', 'Doctor On-Site', 'Eco-Friendly hotel', 
+                'Electric Kettle', 'Excellent Rating', 'Express Check-In / Check-Out', 'Family Friendly', 'Fan', 
+                'Farmstay', 'Fitness', 'Flatscreen TV', 'Free WiFi (Combined)', 'Free WiFi (Public Areas)', 
+                'Free WiFi (Rooms)', 'Fridge', 'From 2 Stars', 'From 3 Stars', 'From 4 Stars', 'Gay-friendly', 
+                'Golf Course', 'Good Rating', 'Guest House', 'Gym', 'Hairdresser', 'Hairdryer', 'Halal Food', 
+                'Hammam', 'Health Retreat', 'Hiking Trail', 'Honeymoon', 'Horse Riding', 'Hostal (ES)', 'Hostel', 
+                'Hot Stone Massage', 'Hotel', 'Hotel Bar', 'House / Apartment', 'Hydrotherapy', 'Hypoallergenic Bedding', 
+                'Hypoallergenic Rooms', 'Ironing Board', 'Jacuzzi (Hotel)', "Kids' Club", 'Kosher Food', 'Large Groups', 
+                'Laundry Service', 'Lift', 'Luxury Hotel', 'Massage', 'Microwave', 'Minigolf', 'Motel', 'Nightclub', 
+                'Non-Smoking Rooms', 'On-Site Boutique Shopping', 'Openable Windows', 'Organised Activities', 
+                'Pet Friendly', 'Playground', 'Pool Table', 'Porter', 'Pousada (BR)', 'Radio', 'Reception (24/7)', 
+                'Resort', 'Restaurant', 'Romantic', 'Room Service', 'Room Service (24/7)', 'Safe (Hotel)', 'Safe (Rooms)', 
+                'Sailing', 'Satellite TV', 'Satisfactory Rating', 'Sauna', 'Self Catering', 'Senior Travellers', 
+                'Serviced Apartment', 'Shooting Sports', 'Shower', 'Singles', 'Sitting Area (Rooms)', 'Ski Resort', 'Skiing', 
+                'Solarium', 'Spa (Wellness Facility)', 'Spa Hotel', 'Steam Room', 'Sun Umbrellas', 'Surfing', 
+                'Swimming Pool (Bar)', 'Swimming Pool (Combined Filter)', 'Swimming Pool (Indoor)', 'Swimming Pool (Outdoor)', 
+                'Szep Kartya', 'Table Tennis', 'Telephone', 'Teleprinter', 'Television', 'Tennis Court', 
+                'Tennis Court (Indoor)', 'Terrace (Hotel)', 'Theme Hotel', 'Towels', 'Very Good Rating', 'Volleyball', 
+                'Washing Machine', 'Water Slide', 'Wheelchair Accessible', 'WiFi (Public Areas)', 'WiFi (Rooms)']
+    
+    rating_keys = ['1 Star', '2 Star', '3 Star', '4 Star', '5 Star', 'From 2 Stars', 'From 3 Stars', 'From 4 Stars']
+    no_rating_keys = [key for key in all_keys if key not in rating_keys]
+    
+    #define keys, that are a subjective rating like "4 Stars" or "Romantic Hotel"
+    subjective_keys = ['1 Star', '2 Star', '3 Star', '4 Star', '5 Star', 'From 2 Stars', 'From 3 Stars', 'From 4 Stars', 
+                       'Excellent Rating', 'Gay-friendly', 'Honeymoon', 'Satisfactory Rating', 'Senior Travellers', 
+                       'Very Good Rating']
 
-    print(f"Analyzing cities ...")
-    city = df_train[['city']].copy()
-    city = city.loc[city['city'].shift() != city['city']]
-    city = city['city'].value_counts()
-    print(city[1:10])
+    objective_keys = [key for key in all_keys if key not in subjective_keys]
 
-    print(f"Analyzing platforms ...")
-    action_type = df_train[['action_type']].copy()
-    action_type = action_type.loc[action_type['action_type'].shift() != action_type['action_type']]
-    action_type = action_type['action_type'].value_counts()
-    print(action_type)
+    #split into training and test; NOTE: seems for dim red use small training, huge test set!
+    print(dimred.reduce(df_items, 150000))
+
+    
+
+    # print(f"Reading {train_csv} ...")
+    # df_train = pd.read_csv(train_csv)
+
+    # print(f"Analyzing users ...")
+    # users = df_train[['user_id']].copy()
+    # users = users.loc[users['user_id'].shift() != users['user_id']]
+    # users = users['user_id'].value_counts()
+    # print(users[1:10])
+
+    # print(f"Analyzing platforms ...")
+    # platform = df_train[['platform']].copy()
+    # platform = platform.loc[platform['platform'].shift() != platform['platform']]
+    # platform = platform['platform'].value_counts()
+    # print(platform)
+
+    # print(f"Analyzing cities ...")
+    # city = df_train[['city']].copy()
+    # city = city.loc[city['city'].shift() != city['city']]
+    # city = city['city'].value_counts()
+    # print(city[1:10])
+
+    # print(f"Analyzing platforms ...")
+    # action_type = df_train[['action_type']].copy()
+    # action_type = action_type.loc[action_type['action_type'].shift() != action_type['action_type']]
+    # action_type = action_type['action_type'].value_counts()
+    # print(action_type)
 
     # print(f"Reading {test_csv} ...")
     # df_test = pd.read_csv(test_csv,nrows=10000)
