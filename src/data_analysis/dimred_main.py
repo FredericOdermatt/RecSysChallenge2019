@@ -1,4 +1,3 @@
-#fm
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -22,6 +21,8 @@ def main(data_path):
     subm_csv = data_directory.joinpath('submission_popular.csv')
 
     meta_encoded_csv = data_directory.joinpath('item_metadata_encoded.csv')
+    dimred_encoded_train_csv = data_directory.joinpath('dimred_encoded_train.csv')
+    dimred_encoded_test_csv = data_directory.joinpath('dimred_encoded_test.csv')
     training_ffm = data_directory.joinpath('training_ffm.txt')
     test_ffm = data_directory.joinpath('test_ffm.txt')
     model_ffm = data_directory.joinpath('model.out')
@@ -59,6 +60,7 @@ def main(data_path):
                 'Tennis Court (Indoor)', 'Terrace (Hotel)', 'Theme Hotel', 'Towels', 'Very Good Rating', 'Volleyball', 
                 'Washing Machine', 'Water Slide', 'Wheelchair Accessible', 'WiFi (Public Areas)', 'WiFi (Rooms)']
     
+    #keys connected to rating
     rating_keys = ['1 Star', '2 Star', '3 Star', '4 Star', '5 Star', 'From 2 Stars', 'From 3 Stars', 'From 4 Stars']
     no_rating_keys = [key for key in all_keys if key not in rating_keys]
     
@@ -70,8 +72,19 @@ def main(data_path):
     objective_keys = [key for key in all_keys if key not in subjective_keys]
 
     #split into training and test; NOTE: seems for dim red use small training, huge test set!
-    print(dimred.reduce(df_items, 150000))
+    #try 150'000
+    encoded_train, encoded_test = dimred.reduce(df_items, 1000)
 
+    print("encoded train shape:", encoded_train.shape)
+    encoded_train.head()
+
+    print("encoded test shape:", encoded_test.shape)
+    encoded_test.head()
+
+    print(f"Writing to {dimred_encoded_train_csv} ...")
+    encoded_train.to_csv(dimred_encoded_train_csv, index=False)
+    print(f"Writing to {dimred_encoded_test_csv} ...")
+    encoded_test.to_csv(dimred_encoded_test_csv, index=False)
     
 
     # print(f"Reading {train_csv} ...")
