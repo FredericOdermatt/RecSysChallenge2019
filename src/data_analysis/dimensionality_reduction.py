@@ -8,28 +8,18 @@ from sklearn.model_selection import train_test_split
 from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.models import Model
 
-def reduce(df_items, splitting_point):
+def reduce(df_items, splitting_point, encoding_dim, nmbs_epoch):
 
-    #below better method to split data
-    # df_train = df_items.iloc[:splitting_point]
-    # df_test = df_items.iloc[splitting_point:]
-
-    #TODO: REMOVE 100000 test data boundary
-    df_items = np.split(df_items, [splitting_point,50000])
-    df_train = df_items[0]
-    df_test = df_items[1]
-
-    train_reference = df_train['reference']
-    test_reference = df_test['reference']
+    df_train = np.split(df_items, [splitting_point])[0]
     df_train.drop(['reference'], axis=1, inplace=True)
-    df_test.drop(['reference'], axis=1, inplace=True)
+    df_items.drop(['reference'], axis=1, inplace=True)
 
     print('Train data shape', df_train.shape)
-    print('Test data shape', df_test.shape)
+    print('Item data shape', df_items.shape)
     
     #as we only have 1,0 values we actually dont need to scale I think
     train_scaled = minmax_scale(df_train, axis = 0)
-    test_scaled = minmax_scale(df_test, axis = 0)
+    item_scaled = minmax_scale(df_items, axis = 0)
 
     ncol = train_scaled.shape[1]
 
@@ -39,9 +29,6 @@ def reduce(df_items, splitting_point):
     print('Xtrain data shape', X_train.shape)
     X_test = train_scaled[mask == 0]
     print('Xtest data shape', X_test.shape)
-
-    #TODO: try different dimensions
-    encoding_dim = 20
 
     input_dim = Input(shape = (ncol, ))
 
@@ -83,21 +70,16 @@ def reduce(df_items, splitting_point):
 
     autoencoder.summary()
 
-    #TODO: different nb_epoch, prob region of 200-300 would be good
-    autoencoder.fit(X_train, X_train, nb_epoch = 1, batch_size = 32, shuffle = False, 
-                    validation_data = (X_test, X_test))    
+    autoencoder.fit(X_train, X_train, nb_epoch = nmbs_epoch, batch_size = 32, 
+                    shuffle = False, validation_data = (X_test, X_test))    
     print("training completed")
 
     #Use Encoder level to reduce dimension of train and test data
     encoder = Model(inputs = input_dim, outputs = encoded13)
     encoded_input = Input(shape = (encoding_dim, ))
-    print(f"encoding training data to {encoding_dim} dimensions...")
+    print(f"encoding item features to {encoding_dim} dimensions... (this takes a while)")
     #Predict the new train and test data using Encoder
-    encoded_train = pd.DataFrame(encoder.predict(train_scaled))
-    encoded_train = encoded_train.add_prefix('feature_')
+    encoded_item = pd.DataFrame(encoder.predict(item_scaled))
+    encoded_item = encoded_item.add_prefix('feature_')
 
-    print(f"encoding test data to {encoding_dim} dimensions...")
-    encoded_test = pd.DataFrame(encoder.predict(test_scaled))
-    encoded_test = encoded_test.add_prefix('feature_')
-
-    return encoded_train, encoded_test
+    return encoded_item

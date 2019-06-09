@@ -21,15 +21,10 @@ def main(data_path):
     subm_csv = data_directory.joinpath('submission_popular.csv')
 
     meta_encoded_csv = data_directory.joinpath('item_metadata_encoded.csv')
-    dimred_encoded_train_csv = data_directory.joinpath('dimred_encoded_train.csv')
-    dimred_encoded_test_csv = data_directory.joinpath('dimred_encoded_test.csv')
-    training_ffm = data_directory.joinpath('training_ffm.txt')
-    test_ffm = data_directory.joinpath('test_ffm.txt')
-    model_ffm = data_directory.joinpath('model.out')
-    output_ffm = data_directory.joinpath('output.txt')
+    dimred_encoded_item_csv = data_directory.joinpath('dimred_encoded_item.csv')
+    print(dimred_encoded_item_csv)
 
-
-    print(f"Reading {meta_encoded_csv} ...")
+    print(f"Reading {meta_encoded_csv}...")
     df_items = pd.read_csv(meta_encoded_csv)
 
     all_keys = ['1 Star', '2 Star', '3 Star', '4 Star', '5 Star', 
@@ -71,131 +66,39 @@ def main(data_path):
 
     objective_keys = [key for key in all_keys if key not in subjective_keys]
 
-    #split into training and test; NOTE: seems for dim red use small training, huge test set!
-    #try 150'000
-    encoded_train, encoded_test = dimred.reduce(df_items, 1000)
+    #NOTE: Only train with data before splitting point as data set too huge
+    #TODO: send different df_items: (No stars, no subject, etc...)
+    #TODO: different encoding dimensions
+    #TODO: different number of epochs
+    #TODO: maybe try larger training sample than 4000, but looking at online samples they 
+    #      don't use more than around 4000 for training of encoder
+    #FUNCTION: dimred.reduce(dataframe, splitting point, encod_dim, nb_epoch)
 
-    print("encoded train shape:", encoded_train.shape)
-    encoded_train.head()
+    #Option 1: small test to see if everything is working (not full itemset)
+    encoded_item = dimred.reduce(df_items[0:10000], 1000, 20, 1)
+    print(f"Writing to {dimred_encoded_item_csv} ...")
+    encoded_item.to_csv(dimred_encoded_item_csv, index=False)
 
-    print("encoded test shape:", encoded_test.shape)
-    encoded_test.head()
+    # #Option 2: one full run with one set of reasonable parameters
+    # encoded_item = dimred.reduce(df_items, 4000, 20, 200)
+    # print(f"Writing to {dimred_encoded_item_csv} ...")
+    # encoded_item.to_csv(dimred_encoded_item_csv, index=False)
 
-    print(f"Writing to {dimred_encoded_train_csv} ...")
-    encoded_train.to_csv(dimred_encoded_train_csv, index=False)
-    print(f"Writing to {dimred_encoded_test_csv} ...")
-    encoded_test.to_csv(dimred_encoded_test_csv, index=False)
-    
-
-    # print(f"Reading {train_csv} ...")
-    # df_train = pd.read_csv(train_csv)
-
-    # print(f"Analyzing users ...")
-    # users = df_train[['user_id']].copy()
-    # users = users.loc[users['user_id'].shift() != users['user_id']]
-    # users = users['user_id'].value_counts()
-    # print(users[1:10])
-
-    # print(f"Analyzing platforms ...")
-    # platform = df_train[['platform']].copy()
-    # platform = platform.loc[platform['platform'].shift() != platform['platform']]
-    # platform = platform['platform'].value_counts()
-    # print(platform)
-
-    # print(f"Analyzing cities ...")
-    # city = df_train[['city']].copy()
-    # city = city.loc[city['city'].shift() != city['city']]
-    # city = city['city'].value_counts()
-    # print(city[1:10])
-
-    # print(f"Analyzing platforms ...")
-    # action_type = df_train[['action_type']].copy()
-    # action_type = action_type.loc[action_type['action_type'].shift() != action_type['action_type']]
-    # action_type = action_type['action_type'].value_counts()
-    # print(action_type)
-
-    # print(f"Reading {test_csv} ...")
-    # df_test = pd.read_csv(test_csv,nrows=10000)
-
-    # print("Preprocessing sessions ...")
-    # mask = df_train['action_type'] == 'clickout item'
-    # df_clicks = df_train[mask]
-
-    # df_clicks = df_clicks[['session_id','reference','impressions','platform','city']]
-
-    # implist = df_clicks['impressions'].values.tolist()
-    # implist = f.getlist(implist)
-    # implist = pd.Series(implist)
-    # df_clicks = df_clicks.drop('impressions',1)
-    # df_clicks['impressions'] = implist.values
-    # df_clicks = df_clicks.groupby('session_id',as_index=False).agg(lambda x: list(x))
-    # df_clicks['impressions'] = df_clicks['impressions'].apply(lambda x: sum(x,[]))
-    # df_clicks['impressions'] = df_clicks.apply(lambda x: list(set(x['impressions'])-set([x['reference']])), axis=1)
-    # df_unclicked = f.flatten(df_clicks,['session_id','platform','city'],'impressions')
-    # df_unclicked = df_unclicked.astype({'reference':int})
-    # df_clicks['reference'] = df_clicks.apply(lambda x: list([x['reference']]), axis=1)
-    # df_clicks = f.flatten(df_clicks,['session_id','platform','city'],'reference')
-    # df_clicks = df_clicks.astype({'reference':int})
-    # df_clicks = resample(df_clicks,replace=True,n_samples=df_unclicked.shape[0])
-    # df_clicks['label'] = 1
-    # df_unclicked['label'] = 0
-
-    # df_clicks.reset_index(inplace=True,drop=True)
-    # df_unclicked.reset_index(inplace=True,drop=True)
-
-    # try:
-    #     meta_encoded_csv.resolve(strict=True)
-    # except FileNotFoundError:
-    #     print(f"Reading {meta_csv} ...")
-    #     df_meta = pd.read_csv(meta_csv)
-    #     print("Preprocessing metadata ...")
-    #     df_metaonehot, propkeys = f.onehotprop(df_meta['properties'])
-    #     df_meta = df_meta['item_id'].to_frame().join(df_metaonehot)
-    #     df_meta = df_meta.rename(columns={'item_id':'reference'})
-    #     df_meta.to_csv(meta_encoded_csv,index=None,header=True)
-    # else:
-    #     print("Encoded metadata file found")
-    #     print(f"Reading {meta_encoded_csv} ...")
-    #     df_meta = pd.read_csv(meta_encoded_csv)
-    #     propkeys = df_meta.columns.values.tolist()
-    #     propkeys.remove('reference')
-    #     propkeys = dict(zip(propkeys,range(len(propkeys))))
-
-    # print("Merging dataframes ...")
-
-    # df_merged = pd.concat([df_clicks,df_unclicked])
-    # df_merged = df_merged.sort_values(by=['reference'])
-    # df_merged = df_merged.merge(df_meta,how='left',on='reference')
-    # df_merged = df_merged.dropna()
-    # df_merged, listkeys = f.onehotsession(df_merged,['platform','city'])
-    # listkeys.insert(0,propkeys)
-    # df_merged = df_merged.drop('reference',1)
-
-    # print(df_merged)
-
-    # x_train, x_test = train_test_split(df_merged,test_size = 0.3)
-
-    # print("Writing FFM input ...")
-    # features.remove('session_id')
-    # f.writeffm(x_train,listkeys,training_ffm.as_posix())
-    # f.writeffm(x_test,listkeys,test_ffm.as_posix())
-
-    # import xlearn as xl
-
-    # print("Training FFM ...")
-    # ffm_model = xl.create_ffm()
-    # ffm_model.setTrain(training_ffm.as_posix())
-    # param = {'task':'binary','lr':0.2,'lambda':0.001,'metric':'acc','opt':'adagrad','k':5,'epoch':20}
-
-    # ffm_model.fit(param,model_ffm.as_posix())
-    # ffm_model.cv(param)
-
-    # ffm_model.setTest(test_ffm.as_posix())
-
-    # ffm_model.setSigmoid()
-    # ffm_model.predict(model_ffm.as_posix(),output_ffm.as_posix())
-
-    # print('Finished')
+    # #Option 3: LONG: create a set of useful datasets for analysis with kmeans
+    # counter = 0
+    # encod_dim = [5, 10, 15, 20]
+    # nmb_epochs = [100, 300]
+    # datasets = [[df_items,"complete"], [df_items[no_rating_keys],"norate"], [df_items[objective_keys],"objectiv"]]
+    # for dim in encod_dim:
+    #     for epoc in nmb_epochs:
+    #         for data in datasets:
+    #             counter += 1
+    #             print(f"working on iteration {counter} of {len(encod_dim)*len(nmb_epochs)*len(datasets)}")
+    #             csv_name = "d" + str(dim) + "_ep" + str(epoc) + "_data" + data[1] + ".csv"
+    #             print(csv_name)
+    #             dimred_encoded_item_csv = data_directory.joinpath(csv_name)
+    #             encoded_item = dimred.reduce(data[0], 4000, dim, epoc)
+    #             encoded_item.to_csv(dimred_encoded_item_csv, index=False)
 
 if __name__ == '__main__':
     main()
