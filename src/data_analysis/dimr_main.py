@@ -22,12 +22,11 @@ def main(data_path):
 
     meta_encoded_csv = data_directory.joinpath('item_metadata_encoded.csv')
     dimred_encoded_item_csv = data_directory.joinpath('dimred_encoded_item.csv')
-    print(dimred_encoded_item_csv)
 
     print(f"Reading {meta_encoded_csv}...")
     df_items = pd.read_csv(meta_encoded_csv)
 
-    all_keys = ['1 Star', '2 Star', '3 Star', '4 Star', '5 Star', 
+    all_keys = ['reference', '1 Star', '2 Star', '3 Star', '4 Star', '5 Star', 
                 'Accessible Hotel', 'Accessible Parking', 'Adults Only', 'Air Conditioning', 'Airport Hotel', 
                 'Airport Shuttle', 'All Inclusive (Upon Inquiry)', 'Balcony', 'Bathtub', 'Beach', 'Beach Bar', 
                 'Beauty Salon', 'Bed & Breakfast', 'Bike Rental', 'Boat Rental', 'Body Treatments', 
@@ -75,7 +74,7 @@ def main(data_path):
     #FUNCTION: dimred.reduce(dataframe, splitting point, encod_dim, nb_epoch)
 
     #Option 1: small test to see if everything is working (not full itemset)
-    encoded_item = dimred.reduce(df_items[0:10000], 1000, 20, 1)
+    encoded_item = dimred.reduce(df_items.loc[:,no_rating_keys][0:10000], 1000, 20, 1)
     print(f"Writing to {dimred_encoded_item_csv} ...")
     encoded_item.to_csv(dimred_encoded_item_csv, index=False)
 
@@ -88,7 +87,7 @@ def main(data_path):
     # counter = 0
     # encod_dim = [5, 10, 15, 20]
     # nmb_epochs = [100, 300]
-    # datasets = [[df_items,"complete"], [df_items[no_rating_keys],"norate"], [df_items[objective_keys],"objectiv"]]
+    # datasets = [[df_items,"complete"], [df_items.loc[:,no_rating_keys],"norate"], [df_items.loc[:,objective_keys],"objectiv"]]
     # for dim in encod_dim:
     #     for epoc in nmb_epochs:
     #         for data in datasets:
