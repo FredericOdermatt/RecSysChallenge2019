@@ -69,7 +69,7 @@ def main(data_path):
 
     objective_keys = [key for key in all_keys if key not in subjective_keys]
 
-    df_withrate = df_items[ ~df_items[ df_items[rating_keys] == 0 ].all(axis=1) ]
+    df_withrate = df_items[ df_items[ df_items[rating_keys] == 1 ].any(axis=1) ]
     df_withrate = df_withrate.reset_index(drop=True)
 
     #NOTE: Only train with data before splitting point as data set too huge
@@ -86,7 +86,7 @@ def main(data_path):
     # encoded_item.to_csv(dimred_encoded_item_csv, index=False)
 
     # #Option 2: one full run with one set of reasonable parameters
-    encoded_item = dimred.reduce(df_withrate.loc[:,no_rating_keys], 10000, 20, 10)
+    encoded_item = dimred.reduce(df_withrate.loc[:,objective_keys], 10000, 20, 100)
     # print(f"Writing to {dimred_encoded_item_csv} ...")
     # encoded_item.to_csv(dimred_encoded_item_csv, index=False)
 
@@ -103,9 +103,10 @@ def main(data_path):
 
     plt.figure()
     ax1 = plt.subplot(1,2,1)
-    ax1.scatter(tsne_results[:,0],tsne_results[:,1],c=prediction)
+    ax1.scatter(tsne_results[:,0],tsne_results[:,1],c=prediction,s=1)
     ax2 = plt.subplot(1,2,2)
-    ax1.scatter(tsne_results[:,0],tsne_results[:,1],c=rates)
+    ax2.scatter(tsne_results[:,0],tsne_results[:,1],c=rates,s=1)
+    ax2.legend()
     plt.draw()
     plt.savefig('./tsne.png', dpi=300, bbox_inches='tight')
 

@@ -63,5 +63,3 @@ def undoonehot(row):
     for i, key in enumerate(rating_keys):
         if row.loc[key]==1:
             return rate[i]
-
-    return row
