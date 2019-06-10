@@ -49,7 +49,7 @@ def reduce(df_items, splitting_point, encoding_dim, nmbs_epoch):
     encoder = Model(inputs = input_dim, outputs = encoded3)
     encoded_input = Input(shape = (encoding_dim, ))
 
-    print(f"Encoding item features to {encoding_dim} dimensions... (this takes a while)")
+    print(f"Encoding item features to {encoding_dim} dimensions... ")
     #Predict the new train and test data using Encoder
     encoded_item = pd.DataFrame(encoder.predict(df_items))
     encoded_item = encoded_item.add_prefix('feature_')
