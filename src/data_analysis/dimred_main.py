@@ -3,10 +3,10 @@ import pandas as pd
 from pathlib import Path
 import click
 from sklearn.utils import resample
-from sklearn.model_selection import train_test_split
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 from . import dimensionality_reduction as dimred
 
 
@@ -25,10 +25,6 @@ def main(data_path):
 
     meta_encoded_csv = data_directory.joinpath('item_metadata_encoded.csv')
     dimred_encoded_item_csv = data_directory.joinpath('dimred_encoded_item.csv')
-
-    print(f"Reading {meta_encoded_csv}...")
-    df_items = pd.read_csv(meta_encoded_csv)
-    df_items = df_items.head(20000)
 
     all_keys = ['1 Star', '2 Star', '3 Star', '4 Star', '5 Star',
                 'Accessible Hotel', 'Accessible Parking', 'Adults Only', 'Air Conditioning', 'Airport Hotel',
@@ -59,6 +55,7 @@ def main(data_path):
                 'Washing Machine', 'Water Slide', 'Wheelchair Accessible', 'WiFi (Public Areas)', 'WiFi (Rooms)']
 
     #keys connected to rating
+    exact_ratings = ['1 Star', '2 Star', '3 Star', '4 Star', '5 Star']
     rating_keys = ['1 Star', '2 Star', '3 Star', '4 Star', '5 Star', 'From 2 Stars', 'From 3 Stars', 'From 4 Stars']
     no_rating_keys = [key for key in all_keys if key not in rating_keys]
 
@@ -69,9 +66,6 @@ def main(data_path):
 
     objective_keys = [key for key in all_keys if key not in subjective_keys]
 
-    df_withrate = df_items[ df_items[ df_items[rating_keys] == 1 ].any(axis=1) ]
-    df_withrate = df_withrate.reset_index(drop=True)
-
     #NOTE: Only train with data before splitting point as data set too huge
     #TODO: send different df_items: (No stars, no subject, etc...)
     #TODO: different encoding dimensions
@@ -80,53 +74,60 @@ def main(data_path):
     #      don't use more than around 4000 for training of encoder
     #FUNCTION: dimred.reduce(dataframe, splitting point, encod_dim, nb_epoch)
 
-    #Option 1: small test to see if everything is working (not full itemset)
-    # encoded_item = dimred.reduce(df_items[0:10000], 1000, 20, 1)
-    # print(f"Writing to {dimred_encoded_item_csv} ...")
-    # encoded_item.to_csv(dimred_encoded_item_csv, index=False)
+    print(f"Reading {meta_encoded_csv}...")
+    df_items = pd.read_csv(meta_encoded_csv)
+    #TODO: reinsert line for debugging
+    #df_items = df_items.head(20000)
 
-    # #Option 2: one full run with one set of reasonable parameters
-    encoded_item = dimred.reduce(df_withrate.loc[:,objective_keys], 10000, 20, 100)
-    # print(f"Writing to {dimred_encoded_item_csv} ...")
-    # encoded_item.to_csv(dimred_encoded_item_csv, index=False)
+    print("Extracting hotels with ratings ...")
+    df_withrate = df_items[(df_items['1 Star']==1) | (df_items['2 Star']==1) | (df_items['3 Star']==1) | (df_items['4 Star']==1) | (df_items['5 Star']==1)]
+    df_withrate = df_withrate.reset_index(drop=True)
+    
+    #FUNCTION: dimred.reduce(dataframe, splitting point, encod_dim, nb_epoch)
+    #TODO: MAKE SURE TO HAVE FOLDERS 1 TO X IN DATA
+    run_configuration = [[1,objective_keys, 10000, 20, 300],
+                         [2,objective_keys, 10000, 10, 300],
+                         [3,no_rating_keys, 10000, 20, 300],
+                         [4,no_rating_keys, 10000, 10, 300]]
 
-    print("Training K-means clustering ...")
+    for run in run_configuration:
+        dimred_encoded_item_csv = data_directory.joinpath(str(run[0])).joinpath('dimred_encoded_item'+str(run[0])+'.csv')
+        try:
+            dimred_encoded_item_csv.resolve(strict=True)
+        except FileNotFoundError:
+            #TODO: NAMING OF FILES AND PATHS
+            #only reduce dim of data with excact ratings, as we can only analyze these data points later
+            encoded_item = dimred.reduce(df_withrate.loc[:,run[1]], run[2], run[3], run[4])
+            print(f"Writing to {dimred_encoded_item_csv} ...")
+            encoded_item.to_csv(dimred_encoded_item_csv, index=False)
+        else:
+            print("Dimred encoded metadata file found ...")
+            print(f"Reading {dimred_encoded_item_csv} ...")
+            encoded_item = pd.read_csv(dimred_encoded_item_csv)
 
-    kmeans = KMeans(n_clusters=5,random_state=0).fit(encoded_item)
-    prediction = kmeans.predict(encoded_item)
-    rates = df_withrate[rating_keys].apply(dimred.undoonehot,axis=1)
+        print("Training K-means clustering ...")
 
-    print("Processing T-SNE ...")
+        kmeans = KMeans(n_clusters=5,random_state=0).fit(encoded_item)
+        prediction = kmeans.predict(encoded_item)
+        rates = df_withrate[rating_keys].apply(dimred.undoonehot,axis=1)
 
-    tsne = TSNE(n_components=2, perplexity=40, n_iter=300)
-    tsne_results = tsne.fit_transform(encoded_item)
+        print("Processing T-SNE ...")
 
-    plt.figure()
-    ax1 = plt.subplot(1,2,1)
-    ax1.scatter(tsne_results[:,0],tsne_results[:,1],c=prediction,s=1)
-    ax2 = plt.subplot(1,2,2)
-    ax2.scatter(tsne_results[:,0],tsne_results[:,1],c=rates,s=1)
-    ax2.legend()
-    plt.draw()
-    plt.savefig('./tsne.png', dpi=300, bbox_inches='tight')
+        tsne = TSNE(n_components=2, perplexity=40, n_iter=300)
+        tsne_results = tsne.fit_transform(encoded_item)
+
+        plt.figure()
+        colors = cm.rainbow(np.linspace(0, 1, 5))
+        ax1 = plt.subplot(1,2,1)
+        ax1.scatter(tsne_results[:,0],tsne_results[:,1],c=colors[prediction],s=1)
+        ax2 = plt.subplot(1,2,2)
+        ax2.scatter(tsne_results[:,0],tsne_results[:,1],c=colors[rates],s=1)
+        ax2.legend()
+        plt.draw()
+        tsne_fig = data_directory.joinpath(str(run[0])).joinpath('tsne'+str(run[0])+'.png')
+        plt.savefig(tsne_fig, dpi=300, bbox_inches='tight')
 
 
-
-    #Option 3: LONG: create a set of useful datasets for analysis with kmeans
-    # counter = 0
-    # encod_dim = [5, 10, 15, 20]
-    # nmb_epochs = [100, 300]
-    # datasets = [[df_items.loc[:,all_keys],"complete"], [df_items.loc[:,no_rating_keys],"norate"], [df_items.loc[:,objective_keys],"objectiv"]]
-    # for dim in encod_dim:
-    #     for epoc in nmb_epochs:
-    #         for data in datasets:
-    #             counter += 1
-    #             print(f"working on iteration {counter} of {len(encod_dim)*len(nmb_epochs)*len(datasets)}")
-    #             csv_name = "d" + str(dim) + "_ep" + str(epoc) + "_data" + data[1] + ".csv"
-    #             print(csv_name)
-    #             dimred_encoded_item_csv = data_directory.joinpath(csv_name)
-    #             encoded_item = dimred.reduce(data[0], 4000, dim, epoc)
-    #             encoded_item.to_csv(dimred_encoded_item_csv, index=False)
 
 if __name__ == '__main__':
     main()

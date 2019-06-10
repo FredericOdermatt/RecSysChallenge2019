@@ -58,8 +58,8 @@ def reduce(df_items, splitting_point, encoding_dim, nmbs_epoch):
 
 
 def undoonehot(row):
-    rating_keys = ['1 Star', '2 Star', '3 Star', '4 Star', '5 Star', 'From 2 Stars', 'From 3 Stars', 'From 4 Stars']
-    rate = [0,1,2,3,4,1,2,3]
+    rating_keys = ['1 Star', '2 Star', '3 Star', '4 Star', '5 Star']
+    rate = [0,1,2,3,4]
     for i, key in enumerate(rating_keys):
         if row.loc[key]==1:
             return rate[i]
