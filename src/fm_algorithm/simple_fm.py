@@ -27,13 +27,14 @@ def main(data_path):
     output_ffm = data_directory.joinpath('output.txt')
 
     print(f"Reading {train_csv} ...")
-    df_train = pd.read_csv(train_csv,nrows=10000)
+    df_train = pd.read_csv(train_csv,nrows=100000)
     print(f"Reading {test_csv} ...")
-    df_test = pd.read_csv(test_csv,nrows=10000)
+    df_test = pd.read_csv(test_csv,nrows=100000)
 
     print("Preprocessing sessions ...")
     mask = df_train['action_type'] == 'clickout item'
     df_clicks = df_train[mask]
+    df_clicks = df_clicks.head(100)
 
     df_clicks = df_clicks[['session_id','reference','impressions','platform','city']]
 
@@ -47,9 +48,11 @@ def main(data_path):
     df_clicks['impressions'] = df_clicks.apply(lambda x: list(set(x['impressions'])-set([x['reference']])), axis=1)
     df_unclicked = f.flatten(df_clicks,['session_id','platform','city'],'impressions')
     df_unclicked = df_unclicked.astype({'reference':int})
+    df_unclicked = df_unclicked.drop_duplicates()
     df_clicks['reference'] = df_clicks.apply(lambda x: list([x['reference']]), axis=1)
     df_clicks = f.flatten(df_clicks,['session_id','platform','city'],'reference')
     df_clicks = df_clicks.astype({'reference':int})
+    df_clicks = df_clicks.drop_duplicates()
     df_clicks = resample(df_clicks,replace=True,n_samples=df_unclicked.shape[0])
     df_clicks['label'] = 1
     df_unclicked['label'] = 0
@@ -81,32 +84,43 @@ def main(data_path):
     df_merged = df_merged.sort_values(by=['reference'])
     df_merged = df_merged.merge(df_meta,how='left',on='reference')
     df_merged = df_merged.dropna()
-    df_merged, listkeys = f.onehotsession(df_merged,['platform','city'])
+    df_merged, listkeys = f.onehotsession(df_merged,['platform','city','session_id'])
     listkeys.insert(0,propkeys)
     df_merged = df_merged.drop('reference',1)
-
     print(df_merged)
 
-    x_train, x_test = train_test_split(df_merged,test_size = 0.3)
+    y = df_merged['label']
+    # df_merged = df_merged.drop('label',1)
+    fieldmap = f.getfieldmap(listkeys)
+    fieldmap = pd.DataFrame(fieldmap, index=[0])
+
+    x_train, x_test, y_train, y_test = train_test_split(df_merged,y,test_size = 0.3)
 
     print("Writing FFM input ...")
     # features.remove('session_id')
+    print(listkeys)
     f.writeffm(x_train,listkeys,training_ffm.as_posix())
     f.writeffm(x_test,listkeys,test_ffm.as_posix())
 
     import xlearn as xl
 
+    # x_train = xl.DMatrix(x_train,y_train,fieldmap)
+    # x_test = xl.DMatrix(x_test,y_test,fieldmap)
+
     print("Training FFM ...")
     ffm_model = xl.create_ffm()
     ffm_model.setTrain(training_ffm.as_posix())
-    param = {'task':'binary','lr':0.2,'lambda':0.001,'metric':'acc','opt':'adagrad','k':5,'epoch':20}
+    # ffm_model.setTrain(x_train)
+    param = {'task':'binary','lr':0.2,'lambda':0.001,'metric':'acc','opt':'adagrad','k':4,'epoch':10}
 
     ffm_model.fit(param,model_ffm.as_posix())
     ffm_model.cv(param)
 
+    ffm_model.setSigmoid()
     ffm_model.setTest(test_ffm.as_posix())
 
-    ffm_model.setSigmoid()
+    # ffm_model.setTest(x_test)
+
     ffm_model.predict(model_ffm.as_posix(),output_ffm.as_posix())
 
     print('Finished')
