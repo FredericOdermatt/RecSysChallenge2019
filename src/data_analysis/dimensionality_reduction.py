@@ -10,7 +10,7 @@ from tensorflow.keras import optimizers
 
 def reduce(df_items, splitting_point, encoding_dim, nmbs_epoch):
 
-    df_items = df_items.drop('reference',axis=1)
+    # df_items = df_items.drop('reference',axis=1)
     df_train = np.split(df_items, [splitting_point])[0]
 
     ncol = df_train.shape[1]
@@ -23,7 +23,7 @@ def reduce(df_items, splitting_point, encoding_dim, nmbs_epoch):
     input_dim = Input(shape = (ncol, ))
 
     # Encoder Layers
-    encoded1 = Dense(100, activation='relu')(input_dim)
+    encoded1 = Dense(100, activation = 'relu')(input_dim)
     encoded2 = Dense(50, activation = 'relu')(encoded1)
     encoded3 = Dense(encoding_dim, activation = 'relu')(encoded2)
 
@@ -55,3 +55,13 @@ def reduce(df_items, splitting_point, encoding_dim, nmbs_epoch):
     encoded_item = encoded_item.add_prefix('feature_')
 
     return encoded_item
+
+
+def undoonehot(row):
+    rating_keys = ['1 Star', '2 Star', '3 Star', '4 Star', '5 Star', 'From 2 Stars', 'From 3 Stars', 'From 4 Stars']
+    rate = [0,1,2,3,4,1,2,3]
+    for i, key in enumerate(rating_keys):
+        if row.loc[key]==1:
+            return rate[i]
+
+    return row

@@ -4,6 +4,9 @@ from pathlib import Path
 import click
 from sklearn.utils import resample
 from sklearn.model_selection import train_test_split
+from sklearn.cluster import KMeans
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
 from . import dimensionality_reduction as dimred
 
 
@@ -25,6 +28,7 @@ def main(data_path):
 
     print(f"Reading {meta_encoded_csv}...")
     df_items = pd.read_csv(meta_encoded_csv)
+    df_items = df_items.head(20000)
 
     all_keys = ['1 Star', '2 Star', '3 Star', '4 Star', '5 Star',
                 'Accessible Hotel', 'Accessible Parking', 'Adults Only', 'Air Conditioning', 'Airport Hotel',
@@ -65,6 +69,9 @@ def main(data_path):
 
     objective_keys = [key for key in all_keys if key not in subjective_keys]
 
+    df_withrate = df_items[ ~df_items[ df_items[rating_keys] == 0 ].all(axis=1) ]
+    df_withrate = df_withrate.reset_index(drop=True)
+
     #NOTE: Only train with data before splitting point as data set too huge
     #TODO: send different df_items: (No stars, no subject, etc...)
     #TODO: different encoding dimensions
@@ -79,15 +86,36 @@ def main(data_path):
     # encoded_item.to_csv(dimred_encoded_item_csv, index=False)
 
     # #Option 2: one full run with one set of reasonable parameters
-    encoded_item = dimred.reduce(df_items, 10000, 20, 100)
-    print(f"Writing to {dimred_encoded_item_csv} ...")
-    encoded_item.to_csv(dimred_encoded_item_csv, index=False)
+    encoded_item = dimred.reduce(df_withrate.loc[:,no_rating_keys], 10000, 20, 10)
+    # print(f"Writing to {dimred_encoded_item_csv} ...")
+    # encoded_item.to_csv(dimred_encoded_item_csv, index=False)
 
-    # #Option 3: LONG: create a set of useful datasets for analysis with kmeans
+    print("Training K-means clustering ...")
+
+    kmeans = KMeans(n_clusters=5,random_state=0).fit(encoded_item)
+    prediction = kmeans.predict(encoded_item)
+    rates = df_withrate[rating_keys].apply(dimred.undoonehot,axis=1)
+
+    print("Processing T-SNE ...")
+
+    tsne = TSNE(n_components=2, perplexity=40, n_iter=300)
+    tsne_results = tsne.fit_transform(encoded_item)
+
+    plt.figure()
+    ax1 = plt.subplot(1,2,1)
+    ax1.scatter(tsne_results[:,0],tsne_results[:,1],c=prediction)
+    ax2 = plt.subplot(1,2,2)
+    ax1.scatter(tsne_results[:,0],tsne_results[:,1],c=rates)
+    plt.draw()
+    plt.savefig('./tsne.png', dpi=300, bbox_inches='tight')
+
+
+
+    #Option 3: LONG: create a set of useful datasets for analysis with kmeans
     # counter = 0
     # encod_dim = [5, 10, 15, 20]
     # nmb_epochs = [100, 300]
-    # datasets = [[df_items,"complete"], [df_items[no_rating_keys],"norate"], [df_items[objective_keys],"objectiv"]]
+    # datasets = [[df_items.loc[:,all_keys],"complete"], [df_items.loc[:,no_rating_keys],"norate"], [df_items.loc[:,objective_keys],"objectiv"]]
     # for dim in encod_dim:
     #     for epoc in nmb_epochs:
     #         for data in datasets:
