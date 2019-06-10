@@ -74,30 +74,31 @@ def main(data_path):
     #FUNCTION: dimred.reduce(dataframe, splitting point, encod_dim, nb_epoch)
 
     #Option 1: small test to see if everything is working (not full itemset)
-    encoded_item = dimred.reduce(df_items.loc[:,no_rating_keys][0:10000], 1000, 20, 1)
-    print(f"Writing to {dimred_encoded_item_csv} ...")
-    encoded_item.to_csv(dimred_encoded_item_csv, index=False)
+    # encoded_item = dimred.reduce(df_items.loc[:,no_rating_keys][0:10000], 1000, 20, 1)
+    # print(f"Writing to {dimred_encoded_item_csv} ...")
+    # encoded_item.to_csv(dimred_encoded_item_csv, index=False)
 
     # #Option 2: one full run with one set of reasonable parameters
     # encoded_item = dimred.reduce(df_items, 4000, 20, 200)
     # print(f"Writing to {dimred_encoded_item_csv} ...")
     # encoded_item.to_csv(dimred_encoded_item_csv, index=False)
 
-    # #Option 3: LONG: create a set of useful datasets for analysis with kmeans
-    # counter = 0
-    # encod_dim = [5, 10, 15, 20]
-    # nmb_epochs = [100, 300]
-    # datasets = [[df_items,"complete"], [df_items.loc[:,no_rating_keys],"norate"], [df_items.loc[:,objective_keys],"objectiv"]]
-    # for dim in encod_dim:
-    #     for epoc in nmb_epochs:
-    #         for data in datasets:
-    #             counter += 1
-    #             print(f"working on iteration {counter} of {len(encod_dim)*len(nmb_epochs)*len(datasets)}")
-    #             csv_name = "d" + str(dim) + "_ep" + str(epoc) + "_data" + data[1] + ".csv"
-    #             print(csv_name)
-    #             dimred_encoded_item_csv = data_directory.joinpath(csv_name)
-    #             encoded_item = dimred.reduce(data[0], 4000, dim, epoc)
-    #             encoded_item.to_csv(dimred_encoded_item_csv, index=False)
+    #Option 3: LONG: create a set of useful datasets for analysis with kmeans
+    counter = 0
+    encod_dim = [10]
+    nmb_epochs = [300]
+    datasets = [[df_items.loc[:,no_rating_keys],"norate"]]
+    for dim in encod_dim:
+        for epoc in nmb_epochs:
+            for data in datasets:
+                counter += 1
+                print(f"working on iteration {counter} of {len(encod_dim)*len(nmb_epochs)*len(datasets)}")
+                csv_name = "d" + str(dim) + "_ep" + str(epoc) + "_data" + data[1] + "deeplayer.csv"
+                print(csv_name)
+                dimred_encoded_item_csv = data_directory.joinpath(csv_name)
+                encoded_item = dimred.reduce(data[0], 4000, dim, epoc)
+                encoded_item.to_csv(dimred_encoded_item_csv, index=False)
+
 
 if __name__ == '__main__':
     main()
