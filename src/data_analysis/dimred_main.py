@@ -77,21 +77,22 @@ def main(data_path):
     print(f"Reading {meta_encoded_csv}...")
     df_items = pd.read_csv(meta_encoded_csv)
     #TODO: reinsert line for debugging
-    #df_items = df_items.head(20000)
+    df_items = df_items.head(20000)
 
     print("Extracting hotels with ratings ...")
     df_withrate = df_items[(df_items['1 Star']==1) | (df_items['2 Star']==1) | (df_items['3 Star']==1) | (df_items['4 Star']==1) | (df_items['5 Star']==1)]
     df_withrate = df_withrate.reset_index(drop=True)
-    
+
     #FUNCTION: dimred.reduce(dataframe, splitting point, encod_dim, nb_epoch)
     #TODO: MAKE SURE TO HAVE FOLDERS 1 TO X IN DATA
-    run_configuration = [[5,objective_keys, 10000, 20, 300],
-                         [6,no_rating_keys, 10000, 20, 300],
-                         [7,objective_keys, 10000, 10, 300],
-                         [8,no_rating_keys, 10000, 10, 300]]
+    run_configuration = [[5,objective_keys, 10000, 20, 100],
+                         [6,no_rating_keys, 10000, 20, 100],
+                         [7,objective_keys, 10000, 10, 100],
+                         [8,no_rating_keys, 10000, 10, 100]]
 
     for run in run_configuration:
         dimred_encoded_item_csv = data_directory.joinpath(str(run[0])).joinpath('dimred_encoded_item'+str(run[0])+'.csv')
+        tsne_data_csv = data_directory.joinpath(str(run[0])).joinpath('tsne_data'+str(run[0])+'.csv')
         try:
             dimred_encoded_item_csv.resolve(strict=True)
         except FileNotFoundError:
@@ -111,21 +112,41 @@ def main(data_path):
         prediction = kmeans.predict(encoded_item)
         rates = df_withrate[rating_keys].apply(dimred.undoonehot,axis=1)
 
-        print("Processing T-SNE ...")
+        try:
+            tsne_data_csv.resolve(strict=True)
+        except FileNotFoundError:
+            print("Processing T-SNE ...")
 
-        tsne = TSNE(n_components=2, perplexity=40, n_iter=300)
-        tsne_results = tsne.fit_transform(encoded_item)
-        tsne_data_csv = data_directory.joinpath(str(run[0])).joinpath('tsne_data'+str(run[0])+'.csv')
-        print(f"Saving TSNE transformed data to {tsne_data_csv} ...")
-        np.savetxt(tsne_data_csv, tsne_results, delimiter = ",")
+            tsne = TSNE(n_components=2, perplexity=40, n_iter=300)
+            tsne_results = tsne.fit_transform(encoded_item)
 
-        plt.figure()
+            print(f"Saving TSNE transformed data to {tsne_data_csv} ...")
+            np.savetxt(tsne_data_csv, tsne_results, delimiter = ",")
+        else:
+            print("TSNE data found")
+            tsne_results = np.loadtxt(tsne_data_csv, delimiter = ",")
+
         colors = cm.rainbow(np.linspace(0, 1, 5))
+        dic = {'x':tsne_results[:,0],'y':tsne_results[:,1],'rates':np.asarray(rates),'colors':np.asarray(rates)}
+        tsne_df = pd.DataFrame(data=dic)
+        tsne_df1 = tsne_df[tsne_df['rates']==0]
+        tsne_df2 = tsne_df[tsne_df['rates']==1]
+        tsne_df3 = tsne_df[tsne_df['rates']==2]
+        tsne_df4 = tsne_df[tsne_df['rates']==3]
+        tsne_df5 = tsne_df[tsne_df['rates']==4]
+
+        plt.figure(figsize=(10,4))
         ax1 = plt.subplot(1,2,1)
         ax1.scatter(tsne_results[:,0],tsne_results[:,1],c=colors[prediction],s=1)
+        ax1.set_title('K-means')
         ax2 = plt.subplot(1,2,2)
-        ax2.scatter(tsne_results[:,0],tsne_results[:,1],c=colors[rates],s=1)
+        ax2.scatter(tsne_df1.loc[:,'x'],tsne_df1.loc[:,'y'],c='k',s=1,label='1 star')
+        ax2.scatter(tsne_df2.loc[:,'x'],tsne_df2.loc[:,'y'],c='r',s=1,label='2 star')
+        ax2.scatter(tsne_df3.loc[:,'x'],tsne_df3.loc[:,'y'],c='gold',s=1,label='3 star')
+        ax2.scatter(tsne_df4.loc[:,'x'],tsne_df4.loc[:,'y'],c='g',s=1,label='4 star')
+        ax2.scatter(tsne_df5.loc[:,'x'],tsne_df5.loc[:,'y'],c='b',s=1,label='5 star')
         ax2.legend()
+        ax2.set_title('Star ratings')
         plt.draw()
         tsne_fig = data_directory.joinpath(str(run[0])).joinpath('tsne'+str(run[0])+'.png')
         plt.savefig(tsne_fig, dpi=300, bbox_inches='tight')
