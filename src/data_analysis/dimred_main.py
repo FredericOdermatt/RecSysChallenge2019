@@ -77,7 +77,7 @@ def main(data_path):
     print(f"Reading {meta_encoded_csv}...")
     df_items = pd.read_csv(meta_encoded_csv)
     #TODO: reinsert line for debugging
-    #df_items = df_items.head(20000)
+    df_items = df_items.head(20000)
 
     print("Extracting hotels with ratings ...")
     df_withrate = df_items[(df_items['1 Star']==1) | (df_items['2 Star']==1) | (df_items['3 Star']==1) | (df_items['4 Star']==1) | (df_items['5 Star']==1)]
@@ -85,17 +85,16 @@ def main(data_path):
     
     #FUNCTION: dimred.reduce(dataframe, splitting point, encod_dim, nb_epoch)
     #TODO: MAKE SURE TO HAVE FOLDERS 1 TO X IN DATA
-    run_configuration = [[5,objective_keys, 10000, 20, 300],
-                         [6,no_rating_keys, 10000, 20, 300],
-                         [7,objective_keys, 10000, 10, 300],
-                         [8,no_rating_keys, 10000, 10, 300]]
+    run_configuration = [[6,objective_keys, 10000, 20, 300],
+                         [7,no_rating_keys, 10000, 20, 300],
+                         [8,objective_keys, 10000, 10, 300],
+                         [9,no_rating_keys, 10000, 10, 300]]
 
     for run in run_configuration:
         dimred_encoded_item_csv = data_directory.joinpath(str(run[0])).joinpath('dimred_encoded_item'+str(run[0])+'.csv')
         try:
             dimred_encoded_item_csv.resolve(strict=True)
         except FileNotFoundError:
-            #TODO: NAMING OF FILES AND PATHS
             #only reduce dim of data with excact ratings, as we can only analyze these data points later
             encoded_item = dimred.reduce(df_withrate.loc[:,run[1]], run[2], run[3], run[4])
             print(f"Writing to {dimred_encoded_item_csv} ...")
@@ -121,10 +120,13 @@ def main(data_path):
 
         plt.figure()
         colors = cm.rainbow(np.linspace(0, 1, 5))
+        plt.suptitle('2 Dimensional Representation of Clusters using TSNE')
         ax1 = plt.subplot(1,2,1)
+        ax1.title.set_text('Clusters by KMeans')
         ax1.scatter(tsne_results[:,0],tsne_results[:,1],c=colors[prediction],s=1)
         ax2 = plt.subplot(1,2,2)
-        ax2.scatter(tsne_results[:,0],tsne_results[:,1],c=colors[rates],s=1)
+        ax2.title.set_text('Star Ratings Distribution')
+        ax2.scatter(tsne_results[:,0],tsne_results[:,1],c=colors[rates], s=1)
         ax2.legend()
         plt.draw()
         tsne_fig = data_directory.joinpath(str(run[0])).joinpath('tsne'+str(run[0])+'.png')
