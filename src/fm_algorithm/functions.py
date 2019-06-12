@@ -3,9 +3,12 @@ import pandas as pd
 import numpy as np
 import re
 from pathlib import Path
+from joblib import Parallel, delayed
+import multiprocessing
 
 
 GR_COLS = ["user_id", "session_id", "timestamp", "step"]
+
 propkeys = ['1 Star', '2 Star', '3 Star', '4 Star', '5 Star', 'Accessible Hotel', 'Accessible Parking', 'Adults Only', 'Air Conditioning', 'Airport Hotel', 'Airport Shuttle', 'All Inclusive (Upon Inquiry)', 'Balcony', 'Bathtub', 'Beach', 'Beach Bar', 'Beauty Salon', 'Bed & Breakfast', 'Bike Rental', 'Boat Rental', 'Body Treatments', 'Boutique Hotel', 'Bowling', 'Bungalows', 'Business Centre', 'Business Hotel', 'Cable TV', 'Camping Site', 'Car Park', 'Casa Rural (ES)', 'Casino (Hotel)', 'Central Heating', 'Childcare', 'Club Hotel', 'Computer with Internet', 'Concierge', 'Conference Rooms', 'Convenience Store', 'Convention Hotel', 'Cosmetic Mirror', 'Cot', 'Country Hotel', 'Deck Chairs', 'Design Hotel', 'Desk', 'Direct beach access', 'Diving', 'Doctor On-Site', 'Eco-Friendly hotel', 'Electric Kettle', 'Excellent Rating', 'Express Check-In / Check-Out', 'Family Friendly', 'Fan', 'Farmstay', 'Fitness', 'Flatscreen TV', 'Free WiFi (Combined)', 'Free WiFi (Public Areas)', 'Free WiFi (Rooms)', 'Fridge', 'From 2 Stars', 'From 3 Stars', 'From 4 Stars', 'Gay-friendly', 'Golf Course', 'Good Rating', 'Guest House', 'Gym', 'Hairdresser', 'Hairdryer', 'Halal Food', 'Hammam', 'Health Retreat', 'Hiking Trail', 'Honeymoon', 'Horse Riding', 'Hostal (ES)', 'Hostel', 'Hot Stone Massage', 'Hotel', 'Hotel Bar', 'House / Apartment', 'Hydrotherapy', 'Hypoallergenic Bedding', 'Hypoallergenic Rooms', 'Ironing Board', 'Jacuzzi (Hotel)', "Kids' Club", 'Kosher Food', 'Large Groups', 'Laundry Service', 'Lift', 'Luxury Hotel', 'Massage', 'Microwave', 'Minigolf', 'Motel', 'Nightclub', 'Non-Smoking Rooms', 'On-Site Boutique Shopping', 'Openable Windows', 'Organised Activities', 'Pet Friendly', 'Playground', 'Pool Table', 'Porter', 'Pousada (BR)', 'Radio', 'Reception (24/7)', 'Resort', 'Restaurant', 'Romantic', 'Room Service', 'Room Service (24/7)', 'Safe (Hotel)', 'Safe (Rooms)', 'Sailing', 'Satellite TV', 'Satisfactory Rating', 'Sauna', 'Self Catering', 'Senior Travellers', 'Serviced Apartment', 'Shooting Sports', 'Shower', 'Singles', 'Sitting Area (Rooms)', 'Ski Resort', 'Skiing', 'Solarium', 'Spa (Wellness Facility)', 'Spa Hotel', 'Steam Room', 'Sun Umbrellas', 'Surfing', 'Swimming Pool (Bar)', 'Swimming Pool (Combined Filter)', 'Swimming Pool (Indoor)', 'Swimming Pool (Outdoor)', 'Szep Kartya', 'Table Tennis', 'Telephone', 'Teleprinter', 'Television', 'Tennis Court', 'Tennis Court (Indoor)', 'Terrace (Hotel)', 'Theme Hotel', 'Towels', 'Very Good Rating', 'Volleyball', 'Washing Machine', 'Water Slide', 'Wheelchair Accessible', 'WiFi (Public Areas)', 'WiFi (Rooms)']
 
 
@@ -176,6 +179,15 @@ def getfieldmap(listkeys):
     return fieldmap
 
 
+def divider(ncore,nrows):
+    divider_ = []
+    for val in range(ncore):
+        divider_.append(val*int((nrows/ncore)))
+    divider_.append(nrows)
+
+    return divider_
+
+
 def fittarget(df,listkeys,onehotcols):
     ncols = 0
     colname = []
@@ -185,16 +197,35 @@ def fittarget(df,listkeys,onehotcols):
         colname += keys.keys()
     colname = dict(zip(colname,range(ncols)))
 
-    df_target = np.zeros((df.shape[0],ncols),dtype=np.uint8)
-    for i in range(df.shape[0]):
-        if i%10000 == 0 : print("Processing %d th row ..." % i)
-        row = df.iloc[i].to_dict()
-        for cols in onehotcols:
-            if row[cols] in colname:
-                df_target[i,colname[row[cols]]] = 1
-        for prop in propkeys_:
-            df_target[i,colname[prop]] = row[prop]
+    ncore = multiprocessing.cpu_count()
+    print("Using %d CPUs ..." % ncore)
 
+    divider_ = divider(ncore,df.shape[0])
+
+    def vecfit(p,start,end,df,ncols,colname,onehotcols):
+        df_vec = np.zeros((end-start,ncols),dtype=np.uint8)
+        for i in range(start,end):
+            if i%100000 == 0 : print("Processing %d th row of %d th process ..." % (i,p))
+            row = df.iloc[i].to_dict()
+            df_row = np.zeros(ncols,dtype=np.uint8)
+            for cols in onehotcols:
+                if row[cols] in colname:
+                    df_row[colname[row[cols]]] = 1
+            for prop in propkeys_:
+                df_row[colname[prop]] = row[prop]
+
+            df_vec[i-start] = df_row
+
+        return p, df_vec
+
+    vecresult = Parallel(n_jobs=ncore)(delayed(vecfit)(p,divider_[p],divider_[p+1],df,ncols,colname,onehotcols) for p in range(ncore))
+    vecresult.sort()
+
+    df_target = []
+    for tup in vecresult:
+        df_target.append(tup[1])
+
+    df_target = np.concatenate(df_target,axis=0)
     df_target = pd.DataFrame(df_target,columns=colname)
 
     return df_target
@@ -203,16 +234,19 @@ def fittarget(df,listkeys,onehotcols):
 def writeffm(df,listkeys,filename):
     nrows = df.shape[0]
     sessions = {}
-    with open(filename,'w+') as file:
-        for r in range(nrows):
-            if r%10000 == 0 : print("Processing %d th row ..." % r)
+
+    ncore = multiprocessing.cpu_count()
+    print("Using %d CPUs ..." % ncore)
+
+    divider_ = divider(ncore,df.shape[0])
+
+    def vecwrite(p,start,end,df,listkeys):
+        block = ''
+        for r in range(start,end):
+            if r%100000 == 0 : print("Processing %d th row of %d th process ..." % (r,p))
             data = ''
             row = df.iloc[r].to_dict()
             data += str(int(row['label']))
-
-            # isession = findorincrement(sessions,row['session_id'])
-            # sessionstr = ' '+'0:0:'+str(isession)
-            # data += sessionstr
 
             for f,fieldkeys in enumerate(listkeys):
                 for colname,idx in fieldkeys.items():
@@ -220,4 +254,18 @@ def writeffm(df,listkeys,filename):
                     data += featurestr
 
             data += '\n'
-            file.write(data)
+            block += data
+
+        return p, block
+
+    vecresult = Parallel(n_jobs=ncore)(delayed(vecwrite)(p,divider_[p],divider_[p+1],df,listkeys) for p in range(ncore))
+    vecresult.sort()
+
+    text = ''
+    for tup in vecresult:
+        text += tup[1]
+
+    with open(filename,'w+') as file:
+        file.write(text)
+
+    return

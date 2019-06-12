@@ -59,7 +59,7 @@ def main(data_path):
     print("Preprocessing test dataset ...")
     df_target = f.get_submission_target(df_test)
     print('Number of test dataset : %d' % df_target.shape[0])
-    # df_target = df_target.head(1000)
+    # df_target = df_target.head(10000)
     df_target = df_target[['user_id','session_id','timestamp','step','reference','impressions','platform','city']]
     implist = df_target['impressions'].values.tolist()
     implist = f.getlist(implist)
@@ -98,7 +98,9 @@ def main(data_path):
     df_merged, listkeys = f.onehotsession(df_merged,['platform','city','session_id'])
     listkeys.insert(0,propkeys)
     df_merged = df_merged.drop('reference',1)
+    df_merged = df_merged.fillna(0)
     print(df_merged)
+    # print(df_merged[df_merged.isnull().any(axis=1)])
 
     print("Encoding test dataset ...")
     df_target = df_target.sort_values(by=['reference'])
@@ -106,6 +108,7 @@ def main(data_path):
     df_target = df_target.fillna(0)
     df_tarref = df_target[['user_id','reference','session_id','timestamp','step']]
     df_target = df_target.drop(['user_id','reference','timestamp','step'],1)
+    print('Number of encoded test dataset : %d' % df_target.shape[0])
     df_target = f.fittarget(df_target,listkeys,['platform','city','session_id'])
     df_target['label'] = 0
 
