@@ -6,6 +6,7 @@ from pathlib import Path
 
 
 GR_COLS = ["user_id", "session_id", "timestamp", "step"]
+propkeys = ['1 Star', '2 Star', '3 Star', '4 Star', '5 Star', 'Accessible Hotel', 'Accessible Parking', 'Adults Only', 'Air Conditioning', 'Airport Hotel', 'Airport Shuttle', 'All Inclusive (Upon Inquiry)', 'Balcony', 'Bathtub', 'Beach', 'Beach Bar', 'Beauty Salon', 'Bed & Breakfast', 'Bike Rental', 'Boat Rental', 'Body Treatments', 'Boutique Hotel', 'Bowling', 'Bungalows', 'Business Centre', 'Business Hotel', 'Cable TV', 'Camping Site', 'Car Park', 'Casa Rural (ES)', 'Casino (Hotel)', 'Central Heating', 'Childcare', 'Club Hotel', 'Computer with Internet', 'Concierge', 'Conference Rooms', 'Convenience Store', 'Convention Hotel', 'Cosmetic Mirror', 'Cot', 'Country Hotel', 'Deck Chairs', 'Design Hotel', 'Desk', 'Direct beach access', 'Diving', 'Doctor On-Site', 'Eco-Friendly hotel', 'Electric Kettle', 'Excellent Rating', 'Express Check-In / Check-Out', 'Family Friendly', 'Fan', 'Farmstay', 'Fitness', 'Flatscreen TV', 'Free WiFi (Combined)', 'Free WiFi (Public Areas)', 'Free WiFi (Rooms)', 'Fridge', 'From 2 Stars', 'From 3 Stars', 'From 4 Stars', 'Gay-friendly', 'Golf Course', 'Good Rating', 'Guest House', 'Gym', 'Hairdresser', 'Hairdryer', 'Halal Food', 'Hammam', 'Health Retreat', 'Hiking Trail', 'Honeymoon', 'Horse Riding', 'Hostal (ES)', 'Hostel', 'Hot Stone Massage', 'Hotel', 'Hotel Bar', 'House / Apartment', 'Hydrotherapy', 'Hypoallergenic Bedding', 'Hypoallergenic Rooms', 'Ironing Board', 'Jacuzzi (Hotel)', "Kids' Club", 'Kosher Food', 'Large Groups', 'Laundry Service', 'Lift', 'Luxury Hotel', 'Massage', 'Microwave', 'Minigolf', 'Motel', 'Nightclub', 'Non-Smoking Rooms', 'On-Site Boutique Shopping', 'Openable Windows', 'Organised Activities', 'Pet Friendly', 'Playground', 'Pool Table', 'Porter', 'Pousada (BR)', 'Radio', 'Reception (24/7)', 'Resort', 'Restaurant', 'Romantic', 'Room Service', 'Room Service (24/7)', 'Safe (Hotel)', 'Safe (Rooms)', 'Sailing', 'Satellite TV', 'Satisfactory Rating', 'Sauna', 'Self Catering', 'Senior Travellers', 'Serviced Apartment', 'Shooting Sports', 'Shower', 'Singles', 'Sitting Area (Rooms)', 'Ski Resort', 'Skiing', 'Solarium', 'Spa (Wellness Facility)', 'Spa Hotel', 'Steam Room', 'Sun Umbrellas', 'Surfing', 'Swimming Pool (Bar)', 'Swimming Pool (Combined Filter)', 'Swimming Pool (Indoor)', 'Swimming Pool (Outdoor)', 'Szep Kartya', 'Table Tennis', 'Telephone', 'Teleprinter', 'Television', 'Tennis Court', 'Tennis Court (Indoor)', 'Terrace (Hotel)', 'Theme Hotel', 'Towels', 'Very Good Rating', 'Volleyball', 'Washing Machine', 'Water Slide', 'Wheelchair Accessible', 'WiFi (Public Areas)', 'WiFi (Rooms)']
 
 
 def get_submission_target(df):
@@ -49,7 +50,7 @@ def explode(df_in, col_expl):
     """Explode column col_expl of array type into multiple rows."""
 
     df = df_in.copy()
-    df.loc[:, col_expl] = df[col_expl].apply(string_to_array)
+    # df.loc[:, col_expl] = df[col_expl].apply(string_to_array)
 
     df_out = pd.DataFrame(
         {col: np.repeat(df[col].values,
@@ -120,11 +121,10 @@ def getlist(listin):
 def onehotprop(df):
     list = df.values.tolist()
     list = getlist(list)
-
-    keys = ['1 Star', '2 Star', '3 Star', '4 Star', '5 Star', 'Accessible Hotel', 'Accessible Parking', 'Adults Only', 'Air Conditioning', 'Airport Hotel', 'Airport Shuttle', 'All Inclusive (Upon Inquiry)', 'Balcony', 'Bathtub', 'Beach', 'Beach Bar', 'Beauty Salon', 'Bed & Breakfast', 'Bike Rental', 'Boat Rental', 'Body Treatments', 'Boutique Hotel', 'Bowling', 'Bungalows', 'Business Centre', 'Business Hotel', 'Cable TV', 'Camping Site', 'Car Park', 'Casa Rural (ES)', 'Casino (Hotel)', 'Central Heating', 'Childcare', 'Club Hotel', 'Computer with Internet', 'Concierge', 'Conference Rooms', 'Convenience Store', 'Convention Hotel', 'Cosmetic Mirror', 'Cot', 'Country Hotel', 'Deck Chairs', 'Design Hotel', 'Desk', 'Direct beach access', 'Diving', 'Doctor On-Site', 'Eco-Friendly hotel', 'Electric Kettle', 'Excellent Rating', 'Express Check-In / Check-Out', 'Family Friendly', 'Fan', 'Farmstay', 'Fitness', 'Flatscreen TV', 'Free WiFi (Combined)', 'Free WiFi (Public Areas)', 'Free WiFi (Rooms)', 'Fridge', 'From 2 Stars', 'From 3 Stars', 'From 4 Stars', 'Gay-friendly', 'Golf Course', 'Good Rating', 'Guest House', 'Gym', 'Hairdresser', 'Hairdryer', 'Halal Food', 'Hammam', 'Health Retreat', 'Hiking Trail', 'Honeymoon', 'Horse Riding', 'Hostal (ES)', 'Hostel', 'Hot Stone Massage', 'Hotel', 'Hotel Bar', 'House / Apartment', 'Hydrotherapy', 'Hypoallergenic Bedding', 'Hypoallergenic Rooms', 'Ironing Board', 'Jacuzzi (Hotel)', "Kids' Club", 'Kosher Food', 'Large Groups', 'Laundry Service', 'Lift', 'Luxury Hotel', 'Massage', 'Microwave', 'Minigolf', 'Motel', 'Nightclub', 'Non-Smoking Rooms', 'On-Site Boutique Shopping', 'Openable Windows', 'Organised Activities', 'Pet Friendly', 'Playground', 'Pool Table', 'Porter', 'Pousada (BR)', 'Radio', 'Reception (24/7)', 'Resort', 'Restaurant', 'Romantic', 'Room Service', 'Room Service (24/7)', 'Safe (Hotel)', 'Safe (Rooms)', 'Sailing', 'Satellite TV', 'Satisfactory Rating', 'Sauna', 'Self Catering', 'Senior Travellers', 'Serviced Apartment', 'Shooting Sports', 'Shower', 'Singles', 'Sitting Area (Rooms)', 'Ski Resort', 'Skiing', 'Solarium', 'Spa (Wellness Facility)', 'Spa Hotel', 'Steam Room', 'Sun Umbrellas', 'Surfing', 'Swimming Pool (Bar)', 'Swimming Pool (Combined Filter)', 'Swimming Pool (Indoor)', 'Swimming Pool (Outdoor)', 'Szep Kartya', 'Table Tennis', 'Telephone', 'Teleprinter', 'Television', 'Tennis Court', 'Tennis Court (Indoor)', 'Terrace (Hotel)', 'Theme Hotel', 'Towels', 'Very Good Rating', 'Volleyball', 'Washing Machine', 'Water Slide', 'Wheelchair Accessible', 'WiFi (Public Areas)', 'WiFi (Rooms)']
+    propkeys_ = propkeys
 
     ncols = len(keys)
-    keys = dict(zip(keys,range(ncols)))
+    keys = dict(zip(propkeys_,range(ncols)))
 
     # df_onehot = pd.get_dummies(pd.Series(list).apply(pd.Series).stack()).sum(level=0) # super-slow
     df_onehot = np.zeros((len(list),ncols),dtype=np.uint8)
@@ -135,31 +135,6 @@ def onehotprop(df):
     df_onehot = pd.DataFrame(df_onehot,columns=keys)
 
     return df_onehot, keys
-
-
-def flatten(dfin,cols,col2):
-    df1 = np.asarray(dfin[cols].values,dtype='U')
-    df2 = dfin[col2].values
-    df = np.zeros((0,len(cols)+1),dtype='U')
-    for i in range(df1.shape[0]):
-        n = len(df2[i])
-        dfblock = np.tile(df1[i],(n,1))
-        dfblock = np.hstack((dfblock,np.asarray(df2[i]).reshape(n,1)))
-        df = np.vstack((df,dfblock))
-    # df = pd.DataFrame({col1:np.repeat(dfin[col1].values,dfin[col2].str.len()),'reference':sum(dfin[col2],[])})
-    cols.append('reference')
-    cols = dict(zip(cols,range(len(cols))))
-    df = pd.DataFrame(df,columns=cols)
-
-    return df
-
-
-def findorincrement(dict,key):
-    if key in dict:
-        return dict.get(key)
-    else:
-        dict[key] = len(dict.keys())
-        return dict.get(key)
 
 
 def onehotid(df):
@@ -201,9 +176,10 @@ def getfieldmap(listkeys):
     return fieldmap
 
 
-def fittarget(df,listkeys):
+def fittarget(df,listkeys,onehotcols):
     ncols = 0
     colname = []
+    propkeys_ = propkeys
     for keys in listkeys:
         ncols += len(keys)
         colname += keys.keys()
@@ -212,9 +188,11 @@ def fittarget(df,listkeys):
     df_target = np.zeros((df.shape[0],ncols),dtype=np.uint8)
     for i in range(df.shape[0]):
         row = df.iloc[i].to_dict()
-        for k, v in row.items():
-            if k in colname:
-                df_target[i,colname[k]] = 1
+        for cols in onehotcols:
+            if row[cols] in colname:
+                df_target[i,colname[row[cols]]] = 1
+        for prop in propkeys_:
+            df_target[i,colname[prop]] = row[prop]
 
     df_target = pd.DataFrame(df_target,columns=colname)
 

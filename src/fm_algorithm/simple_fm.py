@@ -1,5 +1,6 @@
 #fm
 import numpy as np
+import dask.array as da
 import pandas as pd
 from . import functions as f
 from pathlib import Path
@@ -32,7 +33,7 @@ def main(data_path):
     print(f"Reading {test_csv} ...")
     df_test = pd.read_csv(test_csv)
 
-    print("Preprocessing sessions ...")
+    print("Preprocessing training dataset ...")
     mask = df_train['action_type'] == 'clickout item'
     df_clicks = df_train[mask]
     df_clicks = df_clicks.head(1000)
@@ -41,31 +42,32 @@ def main(data_path):
 
     implist = df_clicks['impressions'].values.tolist()
     implist = f.getlist(implist)
-    implist = pd.Series(implist)
     df_clicks = df_clicks.drop('impressions',1)
-    df_clicks['impressions'] = implist.values
+    df_clicks['impressions'] = implist
     df_clicks['impressions'] = df_clicks.apply(lambda x: list(set(x['impressions'])-set([x['reference']])), axis=1)
-    df_unclicked = f.flatten(df_clicks,['session_id','platform','city'],'impressions')
-    df_unclicked = df_unclicked.astype({'reference':int})
+    df_unclicked = f.explode(df_clicks,'impressions')
+    df_unclicked = df_unclicked.drop('reference',1)
+    df_unclicked = df_unclicked.rename(columns={'impressions': 'reference'})
     df_unclicked = df_unclicked.drop_duplicates()
     df_clicks['reference'] = df_clicks.apply(lambda x: list([x['reference']]), axis=1)
-    df_clicks = f.flatten(df_clicks,['session_id','platform','city'],'reference')
-    df_clicks = df_clicks.astype({'reference':int})
+    df_clicks = df_clicks.drop('impressions',1)
+    df_clicks = f.explode(df_clicks,'reference')
     df_clicks = df_clicks.drop_duplicates()
     df_clicks = resample(df_clicks,replace=True,n_samples=(int)(df_unclicked.shape[0]/2.))
     df_clicks['label'] = 1
     df_unclicked['label'] = 0
 
+    print("Preprocessing test dataset ...")
     df_target = f.get_submission_target(df_test)
-    # df_target = df_target.head(100)
+    # df_target = df_target.head(1000)
     df_target = df_target[['user_id','session_id','timestamp','step','reference','impressions','platform','city']]
     implist = df_target['impressions'].values.tolist()
     implist = f.getlist(implist)
-    implist = pd.Series(implist)
     df_target = df_target.drop('impressions',1)
-    df_target['impressions'] = implist.values
-    df_target = f.flatten(df_target,['user_id','session_id','timestamp','step','platform','city'],'impressions')
-    df_target = df_target.astype({'reference':int})
+    df_target['impressions'] = implist
+    df_target = f.explode(df_target,'impressions')
+    df_target = df_target.drop('reference',1)
+    df_target = df_target.rename(columns={'impressions': 'reference'})
 
     # df_clicks.reset_index(inplace=True,drop=True)
     # df_unclicked.reset_index(inplace=True,drop=True)
@@ -98,12 +100,13 @@ def main(data_path):
     df_merged = df_merged.drop('reference',1)
     print(df_merged)
 
+    print("Encoding test dataset ...")
     df_target = df_target.sort_values(by=['reference'])
     df_target = df_target.merge(df_meta,how='left',on='reference')
-    df_target, listktar = f.onehotsession(df_target,['platform','city'])
-    listktar.insert(0,propkeys)
+    df_target = df_target.fillna(0)
     df_tarref = df_target[['user_id','reference','session_id','timestamp','step']]
-    df_target = f.fittarget(df_target,listkeys)
+    df_target = df_target.drop(['user_id','reference','timestamp','step'],1)
+    df_target = f.fittarget(df_target,listkeys,['platform','city','session_id'])
     df_target['label'] = 0
 
     y = df_merged['label']
