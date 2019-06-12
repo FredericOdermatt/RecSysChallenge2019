@@ -1,6 +1,5 @@
 #fm
 import numpy as np
-import dask.array as da
 import pandas as pd
 from . import functions as f
 from pathlib import Path
@@ -59,6 +58,7 @@ def main(data_path):
 
     print("Preprocessing test dataset ...")
     df_target = f.get_submission_target(df_test)
+    print('Number of test dataset : %d' % df_target.shape[0])
     # df_target = df_target.head(1000)
     df_target = df_target[['user_id','session_id','timestamp','step','reference','impressions','platform','city']]
     implist = df_target['impressions'].values.tolist()
