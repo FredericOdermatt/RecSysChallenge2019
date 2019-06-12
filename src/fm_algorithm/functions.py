@@ -187,6 +187,7 @@ def fittarget(df,listkeys,onehotcols):
 
     df_target = np.zeros((df.shape[0],ncols),dtype=np.uint8)
     for i in range(df.shape[0]):
+        if i%10000 == 0 : print("Processing %d th row ..." % i)
         row = df.iloc[i].to_dict()
         for cols in onehotcols:
             if row[cols] in colname:
@@ -204,6 +205,7 @@ def writeffm(df,listkeys,filename):
     sessions = {}
     with open(filename,'w+') as file:
         for r in range(nrows):
+            if r%10000 == 0 : print("Processing %d th row ..." % r)
             data = ''
             row = df.iloc[r].to_dict()
             data += str(int(row['label']))
