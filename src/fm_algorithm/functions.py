@@ -66,13 +66,10 @@ def explode(df_in, col_expl):
 def group_concat(df, gr_cols, col_concat):
     """Concatenate multiple rows into one."""
 
-    df_out = (
-        df
-        .groupby(gr_cols)[col_concat]
-        .apply(lambda x: ' '.join(x))
-        .to_frame()
-        .reset_index()
-    )
+    df_out = df.sort_values(['predict'],ascending=False)
+    df_out = df_out.drop('predict',1)
+    df_out = df_out.astype({col_concat:str})
+    df_out = df_out.groupby(gr_cols)[col_concat].apply(lambda x: ' '.join(x)).to_frame().reset_index()
 
     return df_out
 
@@ -202,6 +199,26 @@ def getfieldmap(listkeys):
     fieldmap = dict(zip(feat,field))
 
     return fieldmap
+
+
+def fittarget(df,listkeys):
+    ncols = 0
+    colname = []
+    for keys in listkeys:
+        ncols += len(keys)
+        colname += keys.keys()
+    colname = dict(zip(colname,range(ncols)))
+
+    df_target = np.zeros((df.shape[0],ncols),dtype=np.uint8)
+    for i in range(df.shape[0]):
+        row = df.iloc[i].to_dict()
+        for k, v in row.items():
+            if k in colname:
+                df_target[i,colname[k]] = 1
+
+    df_target = pd.DataFrame(df_target,columns=colname)
+
+    return df_target
 
 
 def writeffm(df,listkeys,filename):
