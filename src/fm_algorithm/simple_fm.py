@@ -28,14 +28,14 @@ def main(data_path):
     output_ffm = data_directory.joinpath('ffm_out/output.txt')
 
     print(f"Reading {train_csv} ...")
-    df_train = pd.read_csv(train_csv,nrows=100000)
+    df_train = pd.read_csv(train_csv)
     print(f"Reading {test_csv} ...")
     df_test = pd.read_csv(test_csv)
 
     print("Preprocessing training dataset ...")
     mask = df_train['action_type'] == 'clickout item'
     df_clicks = df_train[mask]
-    df_clicks = df_clicks.head(1000)
+    df_clicks = df_clicks.head(10000)
 
     df_clicks = df_clicks[['session_id','reference','impressions','platform','city']]
 
@@ -52,7 +52,7 @@ def main(data_path):
     df_clicks = df_clicks.drop('impressions',1)
     df_clicks = f.explode(df_clicks,'reference')
     df_clicks = df_clicks.drop_duplicates()
-    df_clicks = resample(df_clicks,replace=True,n_samples=(int)(df_unclicked.shape[0]/2.))
+    df_clicks = resample(df_clicks,replace=True,n_samples=(int)(df_unclicked.shape[0]))
     df_clicks['label'] = 1
     df_unclicked['label'] = 0
 
@@ -122,8 +122,13 @@ def main(data_path):
     print("Writing FFM input ...")
     # features.remove('session_id')
     f.writeffm(x_train,listkeys,training_ffm.as_posix())
-    f.writeffm(df_target,listkeys,test_ffm.as_posix())
     f.writeffm(x_val,listkeys,val_ffm.as_posix())
+    try:
+        test_ffm.resolve(strict=True)
+    except FileNotFoundError:
+        f.writeffm(df_target,listkeys,test_ffm.as_posix())
+    else:
+        print("Test FFM input file found")
 
     import xlearn as xl
 
